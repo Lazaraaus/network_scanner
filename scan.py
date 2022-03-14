@@ -95,6 +95,12 @@ def main(filename):
 			for line in file:
 				contents.append(line.replace('\n', ''))
 			file.close()
+
+	# Non Test String
+	else:
+		with open(filename, 'r') as file:
+			for line in file:
+				contents.append(line.replace('\n', ''))
 	SITE_LIST = contents
 	
 	# Create resolver class
@@ -218,7 +224,7 @@ def main(filename):
 		results[site]['Server'] = server
 
 		# Check which security protocols/certs the server offers
-		shell_call_str = 'testssl.sh/testssl.sh --protocols --connect-timeout 5 --openssl-timeout 5 --csvfile ' + 'testssl_data/' + site + '.csv ' + site
+		shell_call_str = 'testssl.sh/testssl.sh --protocols --connect-timeout=5 --openssl-timeout=5 --csvfile ' + 'testssl_data/' + site + '.csv ' + site
 		save_name = 'testssl_data/' + site + '.csv'
 		os.system(shell_call_str)
 		certs = []
@@ -333,20 +339,15 @@ def print_info(results):
 			print(f"Site Info: ")
 			pprint.pprint(results[site])
 			print("\n\n")
-	
-	
+		
 if __name__ == "__main__":
 
 	filename = sys.argv[1]
-	# result = subprocess.run("time echo -e \x1dclose\x0d | telnet 142.250.191.174 80", shell=True, capture_output=True, text=True)
-	# result = subprocess.check_output(["nslookup", "northwestern.edu", "8.8.8.8"], timeout=2, stderr=subprocess.STDOUT).decode("utf-8")
-	# print(result.args)
-	# print(result.returncode)
-	# print(result.stdout)
-	#temp = input("Enter a key to continue....")
+	outfile = sys.argv[2]
+	# Get Info Dict
 	info_dict = main(filename)
 	# Dump Info Dict to JSON
 	json_obj = simplejson.dumps(info_dict, ignore_nan=True, indent=4)
-	with open("results.json", "w") as file:
+	with open(outfile, "w") as file:
 		file.write(json_obj)
 	print_info(info_dict)
