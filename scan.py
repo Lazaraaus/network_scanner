@@ -13,9 +13,16 @@ import requests
 import json
 import os
 import pandas as pd
+import maxminddb
+import numpy as np
+import simplejson
 SERVER_INFO_KEYS = ['Server', 'server', 'Via', 'via']
 SITE_LIST = []
 TELNET_PORTS = ['80', '443', '22']
+
+#
+#  https://github.com/drwetter/testssl.sh
+#
 def extract_from_df(df):
 	info = []
 	# Iterate through rows
@@ -67,12 +74,9 @@ def extract_from_df(df):
 	# tls1_3_offered = tls1_3_row['finding'].to_string()
 
 def main(filename):
-	global SITE_LIST
-	d = datetime.now()
-	unixtime = time.mktime(d.timetuple())
+	global SITE_LIST	
 	# Create results dict
 	results = {}
-	results['scan_time'] = unixtime
 	# create contents arr
 	contents = []
 	# Get list of websties
@@ -99,9 +103,14 @@ def main(filename):
 	resolver.nameservers = ['8.8.8.8']
 	loop = 0
 	# Loop through sites
-	for site in contents:
-		# IPV4, IPV6 Address
+	for site in contents:		
+		# Create sub dict to hold info for this site
 		results[site] = {}
+		# Scan Time
+		d = datetime.now()
+		unixtime = time.mktime(d.timetuple())
+		results[site]['scan_time'] = unixtime
+		# IPV4, IPV6 Address
 		try:
 			# Try to resolve for IPV4
 			answer_ipv4 = resolver.resolve(site, 'A')
@@ -199,7 +208,7 @@ def main(filename):
 			results[site]['redirect_to_https'] = 'true'
 	
 		# Will need to conver 'NaN' to JSON null later
-		server = 'NaN'
+		server = np.nan
 		for key_name in SERVER_INFO_KEYS:
 			try:
 				server = headers[key_name] 
@@ -209,7 +218,7 @@ def main(filename):
 		results[site]['Server'] = server
 
 		# Check which security protocols/certs the server offers
-		shell_call_str = 'testssl.sh/testssl.sh --protocols --csvfile ' + 'testssl_data/' + site + '.csv ' + site
+		shell_call_str = 'testssl.sh/testssl.sh --protocols --connect-timeout 5 --openssl-timeout 5 --csvfile ' + 'testssl_data/' + site + '.csv ' + site
 		save_name = 'testssl_data/' + site + '.csv'
 		os.system(shell_call_str)
 		certs = []
@@ -272,14 +281,51 @@ def main(filename):
 						max_time = end_time
 
 					# Port Satisfies telnet call, break
-					break
-		
-		# Geolocations
+					break	
+			
 		# Add to results dict
 		results[site]['rtt_range'] = [int(round(min_time * 1000)), int(round(max_time * 1000))]
 
+		# Geolocations
+		geo_locations = []
+		# Open DB
+		with maxminddb.open_database("geo_data/GeoLite2-City.mmdb") as reader:
+			# Loop through IPs
+			for ipv4 in results[site]['ipv4']:
+				# Try to get info for IP
+				try:
+					geo_location = reader.get(ipv4)
+
+				# Handle Error, append empty list to results
+				except ValueError:
+					print('Value Error - no entry for this IP in the DB\n')
+
+				# Otherwise, try to get (city, state/province, country)
+				else:
+					print(geo_location)
+					try:
+						city = geo_location['city']['names']['en']
+						country = geo_location['country']['names']['en']
+						state_or_province = geo_location['subdivisions'][0]['names']['en']
+
+					# If any error, append empty list
+					except KeyError:
+						print("One of City, Country, or State/Province is unavailable from the DB\n")
+						print("Skipping....\n")
+
+					# Success, append info to geo_locations list as tuple
+					else:
+						location_str = city + ', ' + state_or_province + ', ' + country 
+						geo_locations.append(location_str)
+
+			# Set geo_locations list in dict
+			results[site]['geo_locations'] = geo_locations
+			# Close DB 
+			reader.close()
+
 	# Return results dict
 	return results
+
 def print_info(results):
 	for site in SITE_LIST:
 			# Print Results entries
@@ -290,12 +336,17 @@ def print_info(results):
 	
 	
 if __name__ == "__main__":
+
 	filename = sys.argv[1]
-	result = subprocess.run("time echo -e \x1dclose\x0d | telnet 142.250.191.174 80", shell=True, capture_output=True, text=True)
+	# result = subprocess.run("time echo -e \x1dclose\x0d | telnet 142.250.191.174 80", shell=True, capture_output=True, text=True)
 	# result = subprocess.check_output(["nslookup", "northwestern.edu", "8.8.8.8"], timeout=2, stderr=subprocess.STDOUT).decode("utf-8")
-	print(result.args)
-	print(result.returncode)
-	print(result.stdout)
+	# print(result.args)
+	# print(result.returncode)
+	# print(result.stdout)
 	#temp = input("Enter a key to continue....")
 	info_dict = main(filename)
+	# Dump Info Dict to JSON
+	json_obj = simplejson.dumps(info_dict, ignore_nan=True, indent=4)
+	with open("results.json", "w") as file:
+		file.write(json_obj)
 	print_info(info_dict)
