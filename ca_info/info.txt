@@ -1,0 +1,1 @@
+Folder for certificate authority info txt files
