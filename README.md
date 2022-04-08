@@ -11,11 +11,10 @@ The project has two folders which will populate based on information retrieved f
 ## Project Parameters
 To run the project in the project directory, run the `python3 scan.py [website_list.txt] [output_file]` command. Below are more details about each of the parameters.
 - `website_list.txt`: A textfile containing a list of newline separated host names to scan and gather details. We have give three test files which can be used with their respective keyword:
-	- `random`: Uses the file random_websites.txt
-	- `test`: Uses the file test_websites.txt
-	- `popular`: Uses the file popular_websites.txt. Warning can take some time to complete. 
+- `random`: Uses the file random_websites.txt
+- `test`: Uses the file test_websites.txt
+- `popular`: Uses the file popular_websites.txt. Warning can take some time to complete. 
 - `output_file`: Lists the path to an output file to which the jsonified data will be written.
-- `url`: The URL of the input recipe from www.allrecipes.com.
 
 
 
